@@ -1,0 +1,25 @@
+{
+  "name": "100eyes",
+  "version": "0.0.1",
+  "description": "Webpage monitoring tool",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nundefined/100eyes.git"
+  },
+  "author": "nundefined",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nundefined/100eyes/issues"
+  },
+  "homepage": "https://github.com/nundefined/100eyes#readme",
+  "devDependencies": {
+    "del": "^2.2.0",
+    "gulp-babel": "^6.1.1",
+    "gulp-concat": "^2.6.0",
+    "gulp-sourcemaps": "^1.6.0"
+  }
+}
