@@ -1,18 +1,18 @@
 import request from 'request';
 import { config } from './config';
 
-function getSlackMessage(message, link) {
+function getSlackMessageObject(message) {
   return JSON.stringify({
-    'text': message + '<' + link + '|게시글 보기>',
+    'text': message ,
     'username': config.slack.botName
   });
 };
 
 module.exports = {
-  send() {
+  send(message) {
     request.post(config.slack.webhookUrl, {
       form: {
-        payload: getSlackMessage('테스트라지요', 'http://www.naver.com')
+        payload: getSlackMessageObject(message)
       }
     }, (err, res, body) => {
       if (!err && res.statusCode === 200) {
@@ -21,5 +21,9 @@ module.exports = {
         console.error(res);
       }
     });
+  },
+
+  formatMessage(matchedKeyword, sentence, targetName, matchedUrl) {
+    return `${targetName}에서 "${matchedKeyword}" 키워드가 포함된 글을 발견했습니다.\n${sentence}\n<${matchedUrl}|글 보기>`;
   }
 };
