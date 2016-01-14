@@ -8,15 +8,14 @@ var BUILD_DIR = 'build';
 
 gulp.task('default', function () {
   return gulp.src('src/**/*.js')
-    .pipe(sourcemaps.init())
-    .pipe(concat('all.js'))
-    .pipe(babel())
-    .pipe(sourcemaps.write('.'))
+    .pipe(babel({
+        presets: ['es2015']
+    }))
     .pipe(gulp.dest(BUILD_DIR));
 });
 
 gulp.task('clean', function () {
-	return del([
-		BUILD_DIR
-	]);
+    return del([
+        BUILD_DIR
+    ]);
 });
