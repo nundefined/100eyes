@@ -8,9 +8,11 @@ var BUILD_DIR = 'build';
 
 gulp.task('default', function () {
   return gulp.src('src/**/*.js')
+    .pipe(sourcemaps.init())
     .pipe(babel({
         presets: ['es2015']
     }))
+    .pipe(sourcemaps.write("."))
     .pipe(gulp.dest(BUILD_DIR));
 });
 
