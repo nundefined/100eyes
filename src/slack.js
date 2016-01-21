@@ -10,17 +10,22 @@ function getSlackMessageObject(message) {
 
 module.exports = {
   send(message) {
-    request.post(config.slack.webhookUrl, {
-      form: {
-        payload: getSlackMessageObject(message)
-      }
-    }, (err, res, body) => {
-      if (!err && res.statusCode === 200) {
-        console.log('ok');
-      } else {
-        console.error(res);
-      }
-    });
+    // return new Promise((resolve, reject) => {
+    //   request.post(config.slack.webhookUrl, {
+    //     form: {
+    //       payload: getSlackMessageObject(message)
+    //     }
+    //   }, (err, res, body) => {
+    //     if (!err && res.statusCode === 200) {
+    //       // console.log('ok');
+    //       resolve();
+    //     } else {
+    //       console.error(res);
+    //       reject();
+    //     }
+    //   });
+    // });
+    return Promise.resolve();
   },
 
   formatMessage(matchedKeyword, sentence, targetName, matchedUrl) {
