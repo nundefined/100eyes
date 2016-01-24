@@ -2,11 +2,15 @@ import _ from 'lodash';
 import cheerio from 'cheerio';
 import request from 'request';
 import moment from 'moment';
+import crawlData from '../crawlData';
+import logger from '../logger';
 
-var name = 'clien';
-var targetUrls = [];
+var id = 'clien'; // config의 id와 동일해야 함
+var targetUrls = {};
 var targetKeywords = [];
+var targetData = {};
 var onMatchedHandler;
+var crawlerRequestInterval = 0;
 
 var targetInfo = {
   maxPages: 0,
@@ -20,15 +24,25 @@ var removeCommentCount = (str) => {
 
 var makeFullUrl = (url) => {
   // clien의 url은 ../bbs/board.php?bo_table=park&wr_idid=43864979 형태로 되어 있음
+  if (!url) {
+    return '';
+  }
+  
   return 'http://www.clien.net/cs2' + url.substring(2);
 };
 
 var markNewestArticle = (url, unixtime) => {
-
+  targetUrls[url].marker = unixtime;
+};
+// 
+var saveNewestArticle = (url) => {
+  return new Promise((resolve, reject) => {
+    return crawlData.save(id, url, targetUrls[url].marker).then(resolve, reject);
+  });
 };
 
-var loadPreviousMarker = () => {
-  return 0;//1453214442;
+var loadPreviousMarker = (url) => {
+  return targetData[url] ? targetData[url].marker : 0;
 }
 
 var findKeyword = (subject) => {
@@ -48,13 +62,17 @@ var findMatch = (url, page) => {
       page = 1;
     }
 
+    logger.verbose('Crawling page ' + newUrl);
+
     request.get(newUrl, (error, response, body) => {
-      console.log('loaded: ' + newUrl);
       var $ = cheerio.load(body, {
           decodeEntities: false
       });
 
       var reachedPreviousArticle = false;
+      var needToMark = true;
+
+      logger.verbose('Parsing page ' + newUrl);
 
       $('.mytr').each((index, elem) => {
         var result;
@@ -67,55 +85,73 @@ var findMatch = (url, page) => {
         var datetime = $elem.find('td span[title]').attr('title');
         var unixtime = moment(datetime).unix();
 
-        if (page === 1 && index == 0) {
+        if (page === 1 && index === 0) {
           markNewestArticle(url, unixtime);
         }
 
         if (targetInfo.marker >= unixtime) {
           reachedPreviousArticle = true;
+
+          if (page === 1 && index === 0) {
+            needToMark = false;
+          }
           return;
         }
 
         subject = removeCommentCount(subject).trim();
-        articleUrl = makeFullUrl(articleUrl);
-
         result = findKeyword(subject);
 
         if (result && onMatchedHandler && typeof onMatchedHandler === 'function') {
-          // onMatchedHandler를 promise로 엮어 전체적인 속도를 컨트를하는 것도 고민해볼만
-          // 이 상태에서는 모든 문서를 파싱하고 슬랙으로 메시지를 쏘는 것처럼 보이는데
-          // 실제 처리해야 할 문서가 매우 많은 경우 어떻게 동작할지 확인 필요
-          console.log('matched: ' + result);
+          articleUrl = makeFullUrl(articleUrl);
+
           promise = promise.then(() => {
-            console.log('send a message to slack... ' + result);
-            return onMatchedHandler(result, subject, name, articleUrl).then(() => {
-              console.log('ok');
-            });
+            logger.verbose('Keyword ' + result + 'matched');
+            return onMatchedHandler(result, subject, id, articleUrl);
           });
         }
       });
 
       if (!reachedPreviousArticle && ++page <= targetInfo.maxPages) {
         promise.then(() => {
-          return findMatch(url, page).then(resolve, reject);
+          return delay(crawlerRequestInterval)
+                  .then(() => {
+                    return findMatch(url, page);
+                  })
+                  .then(resolve, reject);
         });
+      } else if (needToMark) {
+        promise.then(() => {
+          // 하나의 게시판을 읽었을 때만 읽은 위치를 기록한다.
+          // 중간에 에러가 발생해서 재실행할 때 다시 읽을 수 있게 하기 위함이다.
+          return saveNewestArticle(url).then(resolve, reject);
+        })
       } else {
-        promise.then(resolve, reject);
+        return resolve();
       }
     });
   });
 };
 
+var delay = (duration) => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      return resolve();
+    }, duration);
+  });
+};
+
 module.exports = {
   setOptions(option) {
+    this.setData(option.data);
     this.setUrls(option.urls);
     this.setKeywords(option.keywords);
     this.setOnMatchedHandler(option.onMatched);
+    this.setRequestInterval(option.requestInterval);
   },
   setUrls(urls) {
-    for(var url of urls) {
-      targetUrls.push(url);
-    }
+    _.forEach(urls, (url) => {
+      targetUrls[url.url] = url;
+    });
   },
   setKeywords(keywords) {
     for(var keyword of keywords) {
@@ -125,14 +161,25 @@ module.exports = {
   setOnMatchedHandler(handler) {
     onMatchedHandler = handler;
   },
+  setData(data) {
+    _.forEach(data, (datum, key) => {
+      targetData[key] = {marker: datum};
+    });
+  },
+  setRequestInterval(requestInterval) {
+    crawlerRequestInterval = requestInterval
+  },
 
   execute() {
+    logger.info('Clien crawler starts.');
     return _.reduce(targetUrls, (promise, target) => {
       return promise.then(() => {
         targetInfo.maxPages = target.maxPages;
         targetInfo.marker = loadPreviousMarker(target.url);
 
-        return findMatch(target.url);
+        return findMatch(target.url).then(() => {
+          return delay(crawlerRequestInterval);
+        });
       });
     }, Promise.resolve());
   }

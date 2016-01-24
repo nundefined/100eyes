@@ -1,9 +1,12 @@
 import * as _ from 'lodash';
 import clien from './crawler/clien';
 import slr from './crawler/slr';
+import crawlData from './crawlData';
+import logger from './logger';
 
 var _crawlerOptions;
 var _crawlerModules = {};
+var _crawlData = {};
 var _promise = Promise.resolve();
 
 var _triggerMatched = (matchedKeyword, sentence, targetName, matchedUrl) => {
@@ -11,12 +14,25 @@ var _triggerMatched = (matchedKeyword, sentence, targetName, matchedUrl) => {
         typeof _crawlerOptions.onMatched === "function") {
     return _crawlerOptions.onMatched(matchedKeyword, sentence, targetName, matchedUrl);
   }
-}
+};
+
+var _loadDataFile = () => {
+  logger.verbose('Loading data file ' + _crawlerOptions.dataFile);
+  return crawlData.load(_crawlerOptions.dataFile).then((data) => {
+    logger.verbose('Succeeded to laod data file ' + _crawlerOptions.datafile);
+    _crawlData = data;
+  }, () => {
+    // file이 없어 실패할 경우에는 아무런 처리도 하지 않는다.
+    logger.verbose('Failed to laod data file ' + _crawlerOptions.dataFile);
+  });
+};
 
 var _runCrawlers = () => {
   // for ... of의 경우 value가 아닌 reference의 전달이므로 
   // value를 전달하는 _.forEach를 사용
   _.forEach(_crawlerOptions.targets, (target) => {
+    var data;
+
     switch(target.id) {
     case 'clien':
       target.crawler = clien;
@@ -26,22 +42,23 @@ var _runCrawlers = () => {
       break;
     }
 
+    data = _crawlData[target.id] || {};
+
     target.crawler.setOptions({
+      data: data,
       urls: target.urls,
       keywords: _crawlerOptions.keywords,
+      requestInterval: _crawlerOptions.requestInterval,
       onMatched: _triggerMatched
     });
   });
 
-  _startToCrawl();
+  return _startToCrawl();
 };
 
 var _startToCrawl = () => {
-  console.log('_setCrawlingPlan');
-
-  _promise = _.reduce(_crawlerOptions.targets, (promise, target) => {
+  return _promise = _.reduce(_crawlerOptions.targets, (promise, target) => {
     promise = promise.then(() => {
-      console.log(target.id);
       return target.crawler.execute();
     });
 
@@ -52,6 +69,6 @@ var _startToCrawl = () => {
 module.exports = {
   run(options) {
     _crawlerOptions = options || {};
-    _runCrawlers();
+    return _loadDataFile().then(_runCrawlers);
   },
 };
