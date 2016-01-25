@@ -7,12 +7,11 @@ function getSlackMessageObject(option) {
     'username': config.slack.botName,
     'attachments': [
       {
-        "fallback": option.targetName + "에서 키워드를 발견했습니다.",
+        "fallback": `${option.targetName} ${option.source}에서 "${option.matchedKeyword}" 키워드가 포함된 글을 발견했습니다.`,
         "color": "#36a64f",
-        "pretext": option.targetName + "에서 키워드를 발견했습니다.",
-        "title": option.sentence,
-        "title_link": option.matchedUrl,
-        "text": `${option.targetName}에서 "${option.matchedKeyword}" 키워드가 포함된 글을 발견했습니다.`
+        "pretext": `${option.targetName} ${option.source}에서 "${option.matchedKeyword}" 키워드가 포함된 글을 발견했습니다.`,
+        "title": option.content,
+        "title_link": option.matchedUrl
       }
     ]
   });
@@ -38,7 +37,7 @@ module.exports = {
     });
   },
 
-  formatMessage(matchedKeyword, sentence, targetName, matchedUrl) {
-    return `${targetName}에서 "${matchedKeyword}" 키워드가 포함된 글을 발견했습니다.\n${sentence}\n<${matchedUrl}|글 보기>`;
+  formatMessage(matchedKeyword, content, targetName, matchedUrl, source) {
+    return `${targetName} ${source}에서 "${matchedKeyword}" 키워드가 포함된 글을 발견했습니다.\n${content}\n<${matchedUrl}|글 보기>`;
   }
 };

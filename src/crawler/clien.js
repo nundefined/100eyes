@@ -12,6 +12,12 @@ var targetData = {};
 var onMatchedHandler;
 var crawlerRequestInterval = 0;
 
+var CONTENT_MAX_LENGTH = 100;
+
+var TYPE_SUBJECT = '제목';
+var TYPE_CONTENT = '본문';
+var TYPE_COMMENT = '댓글';
+
 var targetInfo = {
   maxPages: 0,
   marker: 0
@@ -19,7 +25,21 @@ var targetInfo = {
 
 var removeCommentCount = (str) => {
   // &nbsp;가 왜 추가되는지 확인 필요
-  return str.replace(/(\[\d+\])$/, '').replace(/&nbsp;/g, '');
+  return removeNoBreakSpace(str.replace(/(\[\d+\])$/, ''));
+};
+
+var removeNoBreakSpace = (str) => {
+  return str.replace(/&nbsp;/g, '');
+};
+
+var removeNewLine = (str) => {
+  return str.replace(/^\n/gm, '').replace(/\n/g, ' ');
+};
+
+var getCleanContentBody = (dirtyContent) => {
+  dirtyContent = removeNoBreakSpace(dirtyContent);
+  dirtyContent = removeNewLine(dirtyContent);
+  return dirtyContent.trim();
 };
 
 var makeFullUrl = (url) => {
@@ -48,6 +68,76 @@ var loadPreviousMarker = (url) => {
 var findKeyword = (subject) => {
   return _.find(targetKeywords, (keyword) => {
     return subject.indexOf(keyword) > -1;
+  });
+};
+
+var findMatchedComment = (texts, keyword) => {
+  return _.find(texts, (text) => {
+    return text.indexOf(keyword) > -1;
+  });
+};
+
+var findMatchInEndPage = (url) => {
+  return new Promise((resolve, reject) => {
+    var promise = Promise.resolve();
+
+    logger.verbose('Crawling page ' + url);
+
+    request.get(url, (error, response, body) => {
+      var $ = cheerio.load(body, {
+          decodeEntities: false
+      });
+
+      logger.verbose('Parsing page ' + url);
+
+      var contentText = getCleanContentBody($('#writeContents').text());
+      var commentText = [];
+
+      $('.reply_content').each((index, elem) => {
+        commentText.push(getCleanContentBody($(elem).text()));
+      });
+
+      var contentResult = findKeyword(contentText);
+      var commentResult = findKeyword(commentText.join(' '));
+
+      if ((contentResult || commentResult) &&
+            onMatchedHandler && typeof onMatchedHandler === 'function') {
+
+        var message;
+        var result;
+        var content;
+        var type;
+
+        if (contentResult) {
+          result = contentResult;
+          message = 'Keyword ' + contentResult + ' matched in a content body';
+          content = contentText.substring(0, CONTENT_MAX_LENGTH);
+
+          if (contentText.length > CONTENT_MAX_LENGTH) {
+            content += '...';
+          }
+
+          type = TYPE_CONTENT;
+        } else {
+          result = commentResult;
+          message = 'Keyword ' + commentResult + ' matched in comments';
+          content = findMatchedComment(commentText, commentResult);
+
+          if (contentText.length > CONTENT_MAX_LENGTH) {
+            content = content.substring(0, CONTENT_MAX_LENGTH) + '...';
+          }
+
+          type = TYPE_COMMENT;
+        }
+
+        promise = promise.then(() => {
+          logger.verbose(message);
+          return onMatchedHandler(result, content, id, url, type).then(resolve, reject);
+        });
+      } else {
+        return resolve();
+      }
+    });
   });
 };
 
@@ -101,13 +191,24 @@ var findMatch = (url, page) => {
         subject = removeCommentCount(subject).trim();
         result = findKeyword(subject);
 
-        if (result && onMatchedHandler && typeof onMatchedHandler === 'function') {
-          articleUrl = makeFullUrl(articleUrl);
+        if (result) {
+          if (onMatchedHandler && typeof onMatchedHandler === 'function') {
+            articleUrl = makeFullUrl(articleUrl);
 
-          promise = promise.then(() => {
-            logger.verbose('Keyword ' + result + ' matched');
-            return onMatchedHandler(result, subject, id, articleUrl);
-          });
+            promise = promise.then(() => {
+              logger.verbose('Keyword ' + result + ' matched');
+              return onMatchedHandler(result, subject, id, articleUrl, TYPE_SUBJECT);
+            });
+          }
+        } else {
+          if (articleUrl) {
+            promise = promise.then(() => {
+              return delay(crawlerRequestInterval)
+                    .then(() => {
+                      return findMatchInEndPage(makeFullUrl(articleUrl));
+                    });
+            });
+          }
         }
       });
 

@@ -13,13 +13,14 @@ crawler.run({
   keywords: config.keywords,
   targets: config.targets,
   requestInterval: config.requestInterval,
-  onMatched: (matchedKeyword, sentence, targetName, matchedUrl) => {
+  onMatched: (matchedKeyword, content, targetName, matchedUrl, source) => {
     return slack.send({
       matchedKeyword: matchedKeyword,
-      sentence: sentence,
+      content: content,
       targetName: targetName,
       matchedUrl: matchedUrl,
-      message: slack.formatMessage(matchedKeyword, sentence, targetName, matchedUrl)
+      source: source,
+      message: slack.formatMessage(matchedKeyword, content, targetName, matchedUrl, source)
     });
   }
 }).then(() => {

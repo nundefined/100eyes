@@ -9,10 +9,10 @@ var _crawlerModules = {};
 var _crawlData = {};
 var _promise = Promise.resolve();
 
-var _triggerMatched = (matchedKeyword, sentence, targetName, matchedUrl) => {
+var _triggerMatched = (matchedKeyword, content, targetName, matchedUrl, source) => {
   if (_crawlerOptions.onMatched &&
         typeof _crawlerOptions.onMatched === "function") {
-    return _crawlerOptions.onMatched(matchedKeyword, sentence, targetName, matchedUrl);
+    return _crawlerOptions.onMatched(matchedKeyword, content, targetName, matchedUrl, source);
   }
 };
 
