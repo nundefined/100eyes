@@ -19,7 +19,7 @@ var _triggerMatched = (matchedKeyword, sentence, targetName, matchedUrl) => {
 var _loadDataFile = () => {
   logger.verbose('Loading data file ' + _crawlerOptions.dataFile);
   return crawlData.load(_crawlerOptions.dataFile).then((data) => {
-    logger.verbose('Succeeded to laod data file ' + _crawlerOptions.datafile);
+    logger.verbose('Succeeded to laod data file ' + _crawlerOptions.dataFile);
     _crawlData = data;
   }, () => {
     // file이 없어 실패할 경우에는 아무런 처리도 하지 않는다.
@@ -47,7 +47,7 @@ var _runCrawlers = () => {
     target.crawler.setOptions({
       data: data,
       urls: target.urls,
-      keywords: _crawlerOptions.keywords,
+      keywords: _.union(_crawlerOptions.keywords, target.keywords),
       requestInterval: _crawlerOptions.requestInterval,
       onMatched: _triggerMatched
     });

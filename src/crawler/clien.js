@@ -27,7 +27,7 @@ var makeFullUrl = (url) => {
   if (!url) {
     return '';
   }
-  
+
   return 'http://www.clien.net/cs2' + url.substring(2);
 };
 
@@ -105,7 +105,7 @@ var findMatch = (url, page) => {
           articleUrl = makeFullUrl(articleUrl);
 
           promise = promise.then(() => {
-            logger.verbose('Keyword ' + result + 'matched');
+            logger.verbose('Keyword ' + result + ' matched');
             return onMatchedHandler(result, subject, id, articleUrl);
           });
         }
@@ -176,6 +176,9 @@ module.exports = {
       return promise.then(() => {
         targetInfo.maxPages = target.maxPages;
         targetInfo.marker = loadPreviousMarker(target.url);
+        targetInfo.keywords = _.union(targetKeywords, target.keywords)
+
+        logger.verbose('Target keywords ' + targetInfo.keywords.join(', '));
 
         return findMatch(target.url).then(() => {
           return delay(crawlerRequestInterval);
