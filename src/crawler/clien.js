@@ -66,7 +66,7 @@ var loadPreviousMarker = (url) => {
 }
 
 var findKeyword = (subject) => {
-  return _.find(targetKeywords, (keyword) => {
+  return _.find(targetInfo.keywords, (keyword) => {
     return subject.indexOf(keyword) > -1;
   });
 };
@@ -182,6 +182,7 @@ var findMatch = (url, page) => {
         if (targetInfo.marker >= unixtime) {
           reachedPreviousArticle = true;
 
+          // 이전에 기록한 마커와 동일한 값이면 마커를 기록하지 않는다.
           if (page === 1 && index === 0) {
             needToMark = false;
           }
