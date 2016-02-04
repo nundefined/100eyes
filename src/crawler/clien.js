@@ -54,7 +54,7 @@ var makeFullUrl = (url) => {
 var markNewestArticle = (url, unixtime) => {
   targetUrls[url].marker = unixtime;
 };
-// 
+
 var saveNewestArticle = (url) => {
   return new Promise((resolve, reject) => {
     return crawlData.save(id, url, targetUrls[url].marker).then(resolve, reject);
