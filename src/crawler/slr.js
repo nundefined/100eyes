@@ -85,6 +85,7 @@ var findMatchedComment = (texts, keyword) => {
   });
 };
 
+// slrclub의 댓글은 동적으로 렌더링하므로 페이지를 받아오는 것만으로는 내용 확인이 불가능하다.
 var findMatchInEndPage = (url) => {
   return new Promise((resolve, reject) => {
     var promise = Promise.resolve();
@@ -98,49 +99,21 @@ var findMatchInEndPage = (url) => {
 
       logger.verbose('Parsing page ' + url);
 
-      var contentText = getCleanContentBody($('#writeContents').text());
-      var commentText = [];
-
-      $('.reply_content').each((index, elem) => {
-        commentText.push(getCleanContentBody($(elem).text()));
-      });
-
+      var contentText = getCleanContentBody($('#userct').text());
       var contentResult = findKeyword(contentText);
-      var commentResult = findKeyword(commentText.join(' '));
 
-      if ((contentResult || commentResult) &&
-            onMatchedHandler && typeof onMatchedHandler === 'function') {
+      if (contentResult && onMatchedHandler && typeof onMatchedHandler === 'function') {
+        var result = contentResult;
+        var message = 'Keyword ' + contentResult + ' matched in a content body';
+        var content = contentText.substring(0, CONTENT_MAX_LENGTH);
 
-        var message;
-        var result;
-        var content;
-        var type;
-
-        if (contentResult) {
-          result = contentResult;
-          message = 'Keyword ' + contentResult + ' matched in a content body';
-          content = contentText.substring(0, CONTENT_MAX_LENGTH);
-
-          if (contentText.length > CONTENT_MAX_LENGTH) {
-            content += '...';
-          }
-
-          type = TYPE_CONTENT;
-        } else {
-          result = commentResult;
-          message = 'Keyword ' + commentResult + ' matched in comments';
-          content = findMatchedComment(commentText, commentResult);
-
-          if (contentText.length > CONTENT_MAX_LENGTH) {
-            content = content.substring(0, CONTENT_MAX_LENGTH) + '...';
-          }
-
-          type = TYPE_COMMENT;
+        if (contentText.length > CONTENT_MAX_LENGTH) {
+          content += '...';
         }
 
         promise = promise.then(() => {
           logger.verbose(message);
-          return onMatchedHandler(result, content, id, url, type).then(resolve, reject);
+          return onMatchedHandler(result, content, id, url, TYPE_CONTENT).then(resolve, reject);
         });
       } else {
         return resolve();
@@ -194,24 +167,26 @@ var findMatch = (url, page) => {
         var articleUrl = $subject.attr('href');
         var listNum = $elem.parent().find('.list_num').text();
 
+        // listNum이 없는 경우는 공지글이므로 무시하고 다음 목록을 처리한다.
         if (listNum === '') {
           ++markerIndex;
+          return;
         }
 
-        // 개발을 위해 잠시 주석 처리
-        // if (page === totalPage && index === markerIndex) {
-        //   markNewestArticle(url, listNum);
-        // }
+        if (page === totalPage && index === markerIndex) {
+          markNewestArticle(url, listNum);
+        }
 
-        // if (targetInfo.marker >= listNum) {
-        //   reachedPreviousArticle = true;
 
-        //   // 이전에 기록한 마커와 동일한 값이면 마커를 기록하지 않는다.
-        //   if (page === totalPage && index === markerIndex) {
-        //     needToMark = false;
-        //   }
-        //   return;
-        // }
+        if (targetInfo.marker >= listNum) {
+          reachedPreviousArticle = true;
+
+          // 이전에 기록한 마커와 동일한 값이면 마커를 기록하지 않는다.
+          if (page === totalPage && index === markerIndex) {
+            needToMark = false;
+          }
+          return;
+        }
 
         subject = removeCommentCount(subject).trim();
         result = findKeyword(subject);
@@ -228,17 +203,17 @@ var findMatch = (url, page) => {
         } else {
           if (articleUrl) {
             // 개발을 위해 잠시 주석 처리
-            // promise = promise.then(() => {
-            //   return delay(crawlerRequestInterval)
-            //         .then(() => {
-            //           return findMatchInEndPage(makeFullUrl(articleUrl));
-            //         });
-            // });
+            promise = promise.then(() => {
+              return delay(crawlerRequestInterval)
+                    .then(() => {
+                      return findMatchInEndPage(makeFullUrl(articleUrl));
+                    });
+            });
           }
         }
       });
 
-      if (!reachedPreviousArticle && --page >= (totalPage - targetInfo.maxPages)) {
+      if (!reachedPreviousArticle && --page > (totalPage - targetInfo.maxPages)) {
         promise.then(() => {
           return delay(crawlerRequestInterval)
                   .then(() => {
